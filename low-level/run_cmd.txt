@@ -1,0 +1,57 @@
+conda run -n dqwbc bash -lc '
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+export TORCH_EXTENSIONS_DIR=/tmp/torch_extensions
+
+
+
+cd legged_gym/scripts
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+python train.py --headless --exptid MARL_b1_z1 --proj_name b1z1-low --task b1z1 --sim_device cuda:1 --rl_device cuda:1 --observe_gait_commands
+
+
+cd legged_gym/scripts
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+python train.py  \
+  --exptid MARL_b1_z1_5D_base_command_2 --proj_name b1z1-low --task b1z1 \
+  --sim_device cuda:0 \
+  --rl_device cuda:0 \
+  --observe_gait_commands \
+  --headless
+
+
+
+
+  
+   \
+  --num_envs 256 \
+  --max_iterations 200
+
+
+
+python play.py --exptid MARL_b1_z1_5D_base_command_2 --task b1z1 --proj_name b1z1-low --checkpoint 45000 --sim_device cpu --rl_device cpu --observe_gait_commands --record_video
+
+
+python train.py  \
+  --exptid MARL_b1_z1_5D_base_command --proj_name b1z1-low --task b1z1 \
+  --sim_device cuda:1 \
+  --rl_device cuda:1 \
+  --observe_gait_commands \
+  --headless
+
+python play.py --exptid MARL_b1_z1_5D_base_command_2 --task b1z1 --proj_name b1z1-low --checkpoint 45000  --observe_gait_commands 
+
+
+python play.py --exptid MARL_b1_z1_5D_base_command --task b1z1 --proj_name b1z1-low --checkpoint 45000 --observe_gait_commands   
+
+pip uninstall isaacgym  
+pip uninstall legged-gym  
+pip  uninstall rsl-rl  
+pip uninstall skrl   
+cd third_party/isaacgym/python && pip install -e .  
+cd ../.. 
+cd rsl_rl && pip install -e .  
+cd .. 
+cd skrl && pip install -e .  
+cd ../.. 
+cd low-level && pip install -e .  
+python play.py --exptid b1z1 --task b1z1 --proj_name b1z1-low --checkpoint 44000 --observe_gait_commands 
