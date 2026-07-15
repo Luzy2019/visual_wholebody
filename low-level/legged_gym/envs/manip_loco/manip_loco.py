@@ -34,7 +34,7 @@ import os
 
 from isaacgym.torch_utils import *
 from isaacgym import gymtorch, gymapi, gymutil
-from legged_gym.utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_float
+from legged_gym.utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_float, sphere2cart, cart2sphere
 
 import torch
 from typing import Tuple, Dict
@@ -59,6 +59,15 @@ class ManipLoco(LeggedRobot):
             self.num_obs = cfg.env.num_observations
         self.stand_by = cfg.env.stand_by
         super().__init__(cfg, *args, **kwargs)
+
+    def _slice_without_gripper(self):
+        gripper_dofs = self.cfg.env.num_gripper_joints
+        return slice(None, -gripper_dofs) if gripper_dofs > 0 else slice(None)
+
+    def _arm_dof_slice(self):
+        gripper_dofs = self.cfg.env.num_gripper_joints
+        stop = -gripper_dofs if gripper_dofs > 0 else None
+        return slice(-(6 + gripper_dofs), stop)
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -91,9 +100,10 @@ class ManipLoco(LeggedRobot):
         dpos = self.curr_ee_goal_cart_world - self.ee_pos
         drot = orientation_error(self.ee_goal_orn_quat, self.ee_orn / torch.norm(self.ee_orn, dim=-1).unsqueeze(-1))
         dpose = torch.cat([dpos, drot], -1).unsqueeze(-1)
-        arm_pos_targets = self._control_ik(dpose) + self.dof_pos[:, -(6 + self.cfg.env.num_gripper_joints):-self.cfg.env.num_gripper_joints]
+        arm_dof_slice = self._arm_dof_slice()
+        arm_pos_targets = self._control_ik(dpose) + self.dof_pos[:, arm_dof_slice]
         all_pos_targets = torch.zeros_like(self.dof_pos)
-        all_pos_targets[:, -(6 + self.cfg.env.num_gripper_joints):-self.cfg.env.num_gripper_joints] = arm_pos_targets
+        all_pos_targets[:, arm_dof_slice] = arm_pos_targets
 
         for t in range(self.cfg.control.decimation):
             self.torques = self._compute_torques(self.actions)
@@ -222,8 +232,8 @@ class ManipLoco(LeggedRobot):
 
         obs_buf = torch.cat((       self._get_body_orientation(),  # dim 2
                                     self.base_ang_vel * self.obs_scales.ang_vel,  # dim 3
-                                    self._reindex_all((self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos)[:, :-self.cfg.env.num_gripper_joints],  # dim 18
-                                    self._reindex_all(self.dof_vel * self.obs_scales.dof_vel)[:, :-self.cfg.env.num_gripper_joints],  # dim 18
+                                    self._reindex_all((self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos)[:, self._slice_without_gripper()],  # dim 18
+                                    self._reindex_all(self.dof_vel * self.obs_scales.dof_vel)[:, self._slice_without_gripper()],  # dim 18
                                     self._reindex_all(self.action_history_buf[:, -1])[:, :12],  # dim 12
                                     self._reindex_feet(self.foot_contacts_from_sensor),  # dim 4
                                     self.commands[:, :3] * self.commands_scale,  # dim 3
@@ -484,8 +494,11 @@ class ManipLoco(LeggedRobot):
         self.body_names = self.gym.get_asset_rigid_body_names(robot_asset)
         self.body_names_to_idx = self.gym.get_asset_rigid_body_dict(robot_asset)
         self.dof_names = self.gym.get_asset_dof_names(robot_asset)
-        self.dof_wo_gripper_names = self.dof_names[:-self.cfg.env.num_gripper_joints]
+        self.dof_wo_gripper_names = self.dof_names[self._slice_without_gripper()]
         self.dof_names_to_idx = self.gym.get_asset_dof_dict(robot_asset)
+        base_name = getattr(self.cfg.asset, "base_name", None)
+        fallback_base_idx = min(1, len(self.body_names) - 1)
+        self.base_body_idx = self.body_names_to_idx.get(base_name, fallback_base_idx)
         # self.num_bodies = len(self.body_names)
         # self.num_dofs = len(self.dof_names)
         feet_names = [s for s in self.body_names if self.cfg.asset.foot_name in s]
@@ -636,7 +649,7 @@ class ManipLoco(LeggedRobot):
         if self.cfg.domain_rand.randomize_base_mass:
             rng_mass = self.cfg.domain_rand.added_mass_range
             rand_mass = np.random.uniform(rng_mass[0], rng_mass[1], size=(1, ))
-            props[1].mass += rand_mass
+            props[self.base_body_idx].mass += rand_mass
         else:
             rand_mass = np.zeros(1)
         
@@ -652,7 +665,7 @@ class ManipLoco(LeggedRobot):
             rng_com_y = self.cfg.domain_rand.added_com_range_y
             rng_com_z = self.cfg.domain_rand.added_com_range_z
             rand_com = np.random.uniform([rng_com_x[0], rng_com_y[0], rng_com_z[0]], [rng_com_x[1], rng_com_y[1], rng_com_z[1]], size=(3, ))
-            props[1].com += gymapi.Vec3(*rand_com)
+            props[self.base_body_idx].com += gymapi.Vec3(*rand_com)
         else:
             rand_com = np.zeros(3)
 
@@ -726,12 +739,12 @@ class ManipLoco(LeggedRobot):
         self.box_root_state = self._root_states[:, 1, :]
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
         self.dof_pos = self.dof_state.view(self.num_envs, self.num_dofs, 2)[..., 0]
-        self.dof_pos_wo_gripper = self.dof_pos[:, :-self.cfg.env.num_gripper_joints]
+        self.dof_pos_wo_gripper = self.dof_pos[:, self._slice_without_gripper()]
         self.dof_vel = self.dof_state.view(self.num_envs, self.num_dofs, 2)[..., 1]
-        self.dof_vel_wo_gripper = self.dof_vel[:, :-self.cfg.env.num_gripper_joints]
+        self.dof_vel_wo_gripper = self.dof_vel[:, self._slice_without_gripper()]
         self.base_quat = self.root_states[:, 3:7]
         self.base_pos = self.root_states[:, :3]
-        self.arm_base_offset = torch.tensor([0.3, 0., 0.09], device=self.device, dtype=torch.float).repeat(self.num_envs, 1)
+        self.arm_base_offset = torch.tensor(self.cfg.arm.base_offset, device=self.device, dtype=torch.float).repeat(self.num_envs, 1)
         # self.yaw_ema = euler_from_quat(self.base_quat)[2]
         base_yaw = euler_from_quat(self.base_quat)[2]
         self.base_yaw_euler = torch.cat([torch.zeros(self.num_envs, 2, device=self.device), base_yaw.view(-1, 1)], dim=1)
@@ -759,7 +772,7 @@ class ManipLoco(LeggedRobot):
         self.ee_pos = self.rigid_body_state[:, self.gripper_idx, :3]
         self.ee_orn = self.rigid_body_state[:, self.gripper_idx, 3:7]
         self.ee_vel = self.rigid_body_state[:, self.gripper_idx, 7:]
-        self.ee_j_eef = self.jacobian_whole[:, self.gripper_idx, :6, -(6 + self.cfg.env.num_gripper_joints):-self.cfg.env.num_gripper_joints]
+        self.ee_j_eef = self.jacobian_whole[:, self.gripper_idx, :6, self._arm_dof_slice()]
 
         # box info & target_ee info
         self.box_pos = self.box_root_state[:, 0:3]
@@ -876,7 +889,7 @@ class ManipLoco(LeggedRobot):
                 if self.cfg.control.control_type in ["P", "V"]:
                     raise Exception(f"PD gain of joint {name} were not defined, setting them to zero")
         # self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
-        self.default_dof_pos_wo_gripper = self.default_dof_pos[:-self.cfg.env.num_gripper_joints]
+        self.default_dof_pos_wo_gripper = self.default_dof_pos[self._slice_without_gripper()]
         
         self.global_steps = 0
 

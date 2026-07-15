@@ -1,5 +1,6 @@
 import torch
 from isaacgym.torch_utils import *
+from legged_gym.utils.math import cart2sphere
 
 class ManipLoco_rewards:
     def __init__(self, env):
@@ -44,7 +45,10 @@ class ManipLoco_rewards:
         return torch.exp(-orn_err/self.env.cfg.rewards.tracking_ee_sigma), orn_err
 
     def _reward_arm_energy_abs_sum(self):
-        energy = torch.sum(torch.abs(self.env.torques[:, 12:-self.env.cfg.env.num_gripper_joints] * self.env.dof_vel[:, 12:-self.env.cfg.env.num_gripper_joints]), dim = 1)
+        controlled_slice = self.env._slice_without_gripper()
+        arm_torques = self.env.torques[:, controlled_slice][:, 12:]
+        arm_vel = self.env.dof_vel[:, controlled_slice][:, 12:]
+        energy = torch.sum(torch.abs(arm_torques * arm_vel), dim = 1)
         return energy, energy
 
     def _reward_tracking_ee_orn_ry(self):

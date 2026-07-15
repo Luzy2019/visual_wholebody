@@ -53,7 +53,8 @@ def train(args):
     else:
         mode = "online"
     wandb.init(project=args.proj_name, name=args.exptid, mode=mode, dir=LEGGED_GYM_ENVS_DIR +"/logs")
-    wandb.save(LEGGED_GYM_ENVS_DIR + "/manip_loco/b1z1_config.py", policy="now")
+    cfg_file = "b2z1_config.py" if args.task in ["b2z1", "b2_z1"] else "b1z1_config.py"
+    wandb.save(os.path.join(LEGGED_GYM_ENVS_DIR, "manip_loco", cfg_file), policy="now")
     wandb.save(LEGGED_GYM_ENVS_DIR + "/manip_loco/manip_loco.py", policy="now")
 
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
