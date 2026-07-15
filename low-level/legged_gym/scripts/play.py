@@ -55,15 +55,24 @@ def play(args):
     # env_cfg.env.episode_length_s = 10000
     env_cfg.domain_rand.push_robots = False
     # env_cfg.domain_rand.push_interval_s = 2
-    env_cfg.domain_rand.randomize_base_mass = True #False
+    env_cfg.domain_rand.randomize_friction = False
+    env_cfg.domain_rand.randomize_base_mass = False
     env_cfg.domain_rand.randomize_base_com = False
+    env_cfg.domain_rand.randomize_motor = False
+    env_cfg.domain_rand.randomize_gripper_mass = False
+    env_cfg.init_state.rand_yaw_range = 0.0
+    env_cfg.init_state.origin_perturb_range = 0.0
+    env_cfg.init_state.init_vel_perturb_range = 0.0
+    if args.stand_by:
+        env_cfg.env.teleop_mode = True
     
     if args.flat_terrain:
         env_cfg.terrain.height = [0.0, 0.0]
+        env_cfg.terrain.num_rows = 2
+        env_cfg.terrain.num_cols = 1
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-    obs = env.get_observations()
     # load policy
     train_cfg.runner.resume = True
     ppo_runner, train_cfg, checkpoint, log_pth = task_registry.make_alg_runner(log_root = log_pth, env=env, name=args.task, args=args, train_cfg=train_cfg, return_log_dir=True)
@@ -119,7 +128,15 @@ def play(args):
         traj_length = int(env.max_episode_length)
 
     # env.update_command_curriculum()
-    env.reset()
+    env.global_steps = 10000 * 24
+    obs, _ = env.reset()
+    if args.stand_by:
+        env.commands[:] = 0.
+        env.goal_timer[:] = 0.
+        env._update_curr_ee_goal()
+        env.goal_timer[:] = 0.
+        env.compute_observations()
+        obs = env.get_observations()
     for i in range(traj_length):
         start_time = time.time()
         if args.use_jit:
