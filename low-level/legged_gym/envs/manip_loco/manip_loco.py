@@ -731,7 +731,7 @@ class ManipLoco(LeggedRobot):
         self.dof_vel_wo_gripper = self.dof_vel[:, :-self.cfg.env.num_gripper_joints]
         self.base_quat = self.root_states[:, 3:7]
         self.base_pos = self.root_states[:, :3]
-        self.arm_base_offset = torch.tensor([0.3, 0., 0.09], device=self.device, dtype=torch.float).repeat(self.num_envs, 1)
+        self.arm_base_offset = torch.tensor(self.cfg.arm.arm_base_offset, device=self.device, dtype=torch.float).repeat(self.num_envs, 1)
         # self.yaw_ema = euler_from_quat(self.base_quat)[2]
         base_yaw = euler_from_quat(self.base_quat)[2]
         self.base_yaw_euler = torch.cat([torch.zeros(self.num_envs, 2, device=self.device), base_yaw.view(-1, 1)], dim=1)
@@ -1262,6 +1262,22 @@ class ManipLoco(LeggedRobot):
         return collision_mask | underground_mask
 
     def _update_curr_ee_goal(self):
+        if self.stand_by:
+            self.commands[:] = 0.
+            self.curr_ee_goal_cart_world[:] = self.ee_pos
+            self.curr_ee_goal_cart[:] = quat_rotate_inverse(
+                self.base_yaw_quat,
+                self.curr_ee_goal_cart_world - self._get_ee_goal_spherical_center(),
+            )
+            self.curr_ee_goal_sphere[:] = cart2sphere(self.curr_ee_goal_cart)
+            self.ee_start_sphere[:] = self.curr_ee_goal_sphere
+            self.ee_goal_sphere[:] = self.curr_ee_goal_sphere
+            self.ee_goal_orn_quat[:] = self.ee_orn / torch.norm(
+                self.ee_orn, dim=-1, keepdim=True
+            ).clamp(min=1e-6)
+            self.goal_timer += 1
+            return
+
         if not self.cfg.env.teleop_mode:
             t = torch.clip(self.goal_timer / self.traj_timesteps, 0, 1)
             self.curr_ee_goal_sphere[:] = torch.lerp(self.ee_start_sphere, self.ee_goal_sphere, t[:, None])

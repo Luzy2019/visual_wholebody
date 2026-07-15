@@ -183,6 +183,7 @@ class B1Z1RoughCfg( LeggedRobotCfg ):
     
     class arm:
         init_target_ee_base = [0.2, 0.0, 0.2]
+        arm_base_offset = [0.3, 0.0, 0.09]
         grasp_offset = 0.08
         osc_kp = np.array([100, 100, 100, 30, 30, 30])
         osc_kd = 2 * (osc_kp ** 0.5)
@@ -409,3 +410,36 @@ class B1Z1RoughCfgPPO(LeggedRobotCfgPPO):
         load_run = -1 # -1 = last run
         checkpoint = -1 # -1 = last saved model
         resume_path = None # updated from load_run and chkpt
+
+
+class AliengoZ1RoughCfg(B1Z1RoughCfg):
+    class init_state(B1Z1RoughCfg.init_state):
+        pos = [0.0, 0.0, 0.45] # x,y,z [m]
+
+    class asset(B1Z1RoughCfg.asset):
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/aliengo_z1/urdf/aliengo_z1.urdf'
+        flip_visual_attachments = True
+
+    class arm(B1Z1RoughCfg.arm):
+        arm_base_offset = [0.12, 0.0, 0.056] # xyz，x 越大越靠狗头，x 越小越往机身中部/后方；z 是高度
+
+    class domain_rand(B1Z1RoughCfg.domain_rand):
+        added_mass_range = [0., 8.]
+        added_com_range_x = [-0.10, 0.10]
+        added_com_range_y = [-0.10, 0.10]
+        added_com_range_z = [-0.10, 0.10]
+
+    class rewards(B1Z1RoughCfg.rewards):
+        base_height_target = 0.42
+
+
+class AliengoZ1RoughCfgPPO(B1Z1RoughCfgPPO):
+    class policy(B1Z1RoughCfgPPO.policy):
+        adaptive_arm_gains = AliengoZ1RoughCfg.control.adaptive_arm_gains
+
+    class algorithm(B1Z1RoughCfgPPO.algorithm):
+        torque_supervision = AliengoZ1RoughCfg.control.torque_supervision
+        adaptive_arm_gains = AliengoZ1RoughCfg.control.adaptive_arm_gains
+
+    class runner(B1Z1RoughCfgPPO.runner):
+        experiment_name = 'aliengo_z1'

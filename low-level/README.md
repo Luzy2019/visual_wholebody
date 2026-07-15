@@ -7,12 +7,14 @@
 
 ## Train
 
-The environment related code is `legged_gym/legged_gym/envs/manip_loco/manip_loco.py`, and the related config for b1z1 hardware is in `legged_gym/legged_gym/envs/b1z1/b1z1_config.py`.
+The environment related code is `legged_gym/legged_gym/envs/manip_loco/manip_loco.py`, and the Aliengo+Z1 config entry is `legged_gym/legged_gym/envs/manip_loco/aliengo_z1_config.py`.
 
 ```bash
 cd legged_gym/scripts
+conda activate b1z1
 export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
-python train.py --headless --exptid b1_z1_source --proj_name b1z1-low --task b1z1 --sim_device cuda:0 --rl_device cuda:0 --observe_gait_commands
+export TORCH_EXTENSIONS_DIR=/tmp/torch_extensions
+python train.py --headless --exptid aliengo_z1_source --proj_name aliengo-z1-low --task aliengo_z1 --sim_device cuda:0 --rl_device cuda:0 --observe_gait_commands
 ```
 - `--debug` disables wandb and set a small number of envs for faster execution.
 - `--headless` disables rendering, typically used when you train model.
@@ -21,11 +23,25 @@ python train.py --headless --exptid b1_z1_source --proj_name b1z1-low --task b1z
 
 Check `legged_gym/legged_gym/utils/helpers.py` for all command line args.
 
+## Visualize
+To inspect whether the Aliengo+Z1 URDF, meshes, and joint order load correctly:
+```bash
+cd legged_gym/scripts
+conda activate b1z1
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+export TORCH_EXTENSIONS_DIR=/tmp/torch_extensions
+python visualize_aliengo_z1_standby.py --sim_device cuda:0
+```
+By default this renders the static standby pose without advancing physics. Add `--simulate` if you also want to check the pose under PhysX and PD targets.
+
+
 ## Play
 Only need to specify `--exptid`. The parser will automatically find corresponding runs.
 ```bash
 cd legged_gym/scripts
-python play.py --exptid SOME_YOUR_DESCRIPTION --task b1z1 --proj_name b1z1-low --checkpoint 64000 --observe_gait_commands
+python play.py --exptid SOME_YOUR_DESCRIPTION --task aliengo_z1 --proj_name aliengo-z1-low --checkpoint 64000 --observe_gait_commands
+python play.py --exptid aliengo_z1_source --proj_name aliengo-z1-low --checkpoint 64000 --observe_gait_commands
+
 ```
 Use `--sim_device cpu --rl_device cpu` in case not enough GPU memory.
 
