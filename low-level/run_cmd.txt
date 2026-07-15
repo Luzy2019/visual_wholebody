@@ -17,13 +17,14 @@ python visualize_aliengo_z1_standby.py \
 
 # Train Aliengo + Z1.
 python train.py \
-  --headless \
   --exptid MARL_aliengo_z1 \
   --proj_name aliengo-z1-low \
   --task aliengo_z1 \
   --sim_device cuda:0 \
   --rl_device cuda:0 \
   --observe_gait_commands
+
+  --headless \
 
 # Fast smoke test.
 python train.py \
