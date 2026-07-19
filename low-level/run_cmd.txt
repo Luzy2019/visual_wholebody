@@ -48,8 +48,6 @@ python play.py \
   --sim_device cuda:0 \
   --rl_device cuda:0 \
   --observe_gait_commands \
-
-
   --record_video
 
 # Reinstall local dependencies when the editable installs are stale.
