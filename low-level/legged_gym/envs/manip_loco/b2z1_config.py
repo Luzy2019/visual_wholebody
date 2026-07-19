@@ -79,6 +79,12 @@ class B2Z1RoughCfg(B1Z1RoughCfg):
     class rewards(B1Z1RoughCfg.rewards):
         base_height_target = 0.48
 
+    class scales(B1Z1RoughCfg.rewards.scales):
+        walking_dof = 0.0
+        tracking_contacts_shaped_force = 2.0
+        tracking_contacts_shaped_vel = 2.0
+        tracking_lin_vel_max = 4.0
+        tracking_ang_vel = 1.0
 
 class B2Z1RoughCfgPPO(B1Z1RoughCfgPPO):
     class policy(B1Z1RoughCfgPPO.policy):
