@@ -137,6 +137,14 @@ def play(args):
 
         duration = stop_time - start_time
         time.sleep(max(0.02 - duration, 0))
+        if i % 50 == 0:
+            print(
+                "cmd", env.commands[0, :3].detach().cpu().numpy(),
+                "lin", env.base_lin_vel[0, :3].detach().cpu().numpy(),
+                "yaw", env.base_ang_vel[0, 2].item(),
+                "act_leg_abs", actions[0, :12].abs().mean().item(),
+                "tau_leg_abs", env.torques[0, :12].abs().mean().item(),
+            )
 
     if args.record_video:
         for mp4_writer in mp4_writers:
