@@ -57,5 +57,6 @@ python play.py --exptid b2_z1 --task b2z1 --proj_name b2z1-low --checkpoint 4500
 
 python train.py --headless --exptid b2_z1 --proj_name b2z1-low --task b2z1 --sim_device cuda:0 --rl_device cuda:0 --observe_gait_commands 
 
+low-level/legged_gym/scripts/visualize_b2_z1_urdf.py 可视化b2_z1脚本 
 
 为啥么站立不动啊，没找到原因。。。

@@ -29,5 +29,6 @@ python play.py --exptid SOME_YOUR_DESCRIPTION --task b1z1 --proj_name b1z1-low -
 ```
 Use `--sim_device cpu --rl_device cpu` in case not enough GPU memory.
 
+更多运行指令请见：run_cmd.txt
 ## Suggestions
 To choose a good low-level policy that can be further used for training the high-level policy, we suggest you deploy the low-level policy first, and see if it goes well before training a high-level policy.
