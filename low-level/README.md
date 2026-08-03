@@ -44,6 +44,6 @@ python play.py --exptid aliengo_z1_source --proj_name aliengo-z1-low --checkpoin
 
 ```
 Use `--sim_device cpu --rl_device cpu` in case not enough GPU memory.
-
+更多运行指令请看run_cmd.txt
 ## Suggestions
 To choose a good low-level policy that can be further used for training the high-level policy, we suggest you deploy the low-level policy first, and see if it goes well before training a high-level policy.
