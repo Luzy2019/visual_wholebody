@@ -866,7 +866,7 @@
     </actuator>
   </transmission>
   <joint name="base_static_joint" type="fixed" dont_collapse="true">
-    <origin rpy="0 0 0" xyz="0.12 0 0.056" />
+    <origin rpy="0 0 0" xyz="0.2535 0 0.056" />
     <parent link="trunk" />
     <child link="link00" />
   </joint>

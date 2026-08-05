@@ -65,6 +65,8 @@ def play(args):
     env_cfg.init_state.init_vel_perturb_range = 0.0
     if args.stand_by:
         env_cfg.env.teleop_mode = True
+    if args.zero_commands:
+        env_cfg.env.force_zero_commands = True
     
     if args.flat_terrain:
         env_cfg.terrain.height = [0.0, 0.0]
@@ -113,7 +115,8 @@ def play(args):
         import imageio
         env.enable_viewer_sync = False
         for i in range(env.num_envs):
-            video_name = args.exptid+ f'-{i}-' + str(checkpoint) +".mp4"
+            video_tag = f'-{args.video_tag}' if args.video_tag else ''
+            video_name = args.exptid + video_tag + f'-{i}-' + str(checkpoint) + ".mp4"
             run_name = log_pth.split("/")[-1]
             path = f"../../logs/videos/{run_name}"
             if not os.path.exists(path):
@@ -122,7 +125,9 @@ def play(args):
             mp4_writer = imageio.get_writer(video_name, fps=25)
             mp4_writers.append(mp4_writer)
 
-    if not args.record_video:
+    if args.play_seconds > 0:
+        traj_length = max(1, int(np.ceil(args.play_seconds / env.dt)))
+    elif not args.record_video:
         traj_length = 1000*int(env.max_episode_length)
     else:
         traj_length = int(env.max_episode_length)
@@ -137,13 +142,22 @@ def play(args):
         env.goal_timer[:] = 0.
         env.compute_observations()
         obs = env.get_observations()
+    elif args.zero_commands:
+        env.commands[:] = 0.
+        env.compute_observations()
+        obs = env.get_observations()
+
+    reset_count = 0
+    max_leg_action_abs = 0.
     for i in range(traj_length):
         start_time = time.time()
         if args.use_jit:
             actions = policy(torch.cat((obs[:, :env.cfg.env.num_proprio], obs[:, env.cfg.env.num_proprio+env.cfg.env.num_priv:]), dim=1))
         else:
             actions = policy(obs.detach(), hist_encoding=True)
+        max_leg_action_abs = max(max_leg_action_abs, actions[:, :12].abs().max().item())
         obs, _, rews, arm_rews, dones, infos = env.step(actions.detach())
+        reset_count += int(dones.sum().item())
         if args.record_video:
             imgs = env.render_record(mode='rgb_array')
             if imgs is not None:
@@ -158,6 +172,15 @@ def play(args):
     if args.record_video:
         for mp4_writer in mp4_writers:
             mp4_writer.close()
+
+    print(
+        "Play summary: steps={}, duration_s={:.2f}, resets={}, max_leg_action_abs={:.3f}".format(
+            traj_length,
+            traj_length * env.dt,
+            reset_count,
+            max_leg_action_abs,
+        )
+    )
 
 if __name__ == '__main__':
     EXPORT_POLICY = False

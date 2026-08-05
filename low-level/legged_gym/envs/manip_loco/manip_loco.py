@@ -67,7 +67,10 @@ class ManipLoco(LeggedRobot):
             actions (torch.Tensor): Tensor of shape (num_envs, num_actions_per_env)
             前12维是底盘控制，后6维是机械臂控制
         """
-        actions[:, 12:] = 0. 
+        # PPO keeps the returned action tensor until process_env_step(). Do not
+        # mutate that tensor when masking the arm outputs used by the IK path.
+        actions = actions.clone()
+        actions[:, 12:] = 0.
         actions = self._reindex_all(actions)
         actions = torch.clip(actions, -self.clip_actions, self.clip_actions).to(self.device)
         # step physics and render each frame
@@ -261,14 +264,22 @@ class ManipLoco(LeggedRobot):
         termination_contact_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
 
         r, p, _ = euler_from_quat(self.base_quat) 
-        z = self.root_states[:, 2]
+        base_height = torch.mean(
+            self.root_states[:, 2].unsqueeze(1) - self.measured_heights,
+            dim=1,
+        )
 
         # r_threshold_buff = ((r > 0.2) & (self.curr_ee_goal_sphere[:, 2] >= 0)) | ((r < -0.2) & (self.curr_ee_goal_sphere[:, 2] <= 0))
         # p_threshold_buff = ((p > 0.2) & (self.curr_ee_goal_sphere[:, 1] >= 0)) | ((p < -0.2) & (self.curr_ee_goal_sphere[:, 1] <= 0))
-        r_term = torch.abs(r) > 0.8
-        p_term = torch.abs(p) > 0.8
-        z_term = z < 0.1
+        r_term = torch.abs(r) > self.cfg.termination.r_threshold
+        p_term = torch.abs(p) > self.cfg.termination.p_threshold
+        z_term = base_height < self.cfg.termination.z_threshold
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
+
+        self.termination_contact_buf = termination_contact_buf
+        self.termination_roll_buf = r_term
+        self.termination_pitch_buf = p_term
+        self.termination_height_buf = z_term
 
         # arm_base_local = torch.tensor([0.3, 0.0, 0.09], device=self.device).repeat(self.num_envs, 1)
         # arm_base = quat_apply(self.base_quat, arm_base_local) + self.root_states[:, :3]
@@ -334,6 +345,13 @@ class ManipLoco(LeggedRobot):
         for key in self.episode_metric_sums.keys():
             self.extras["episode"]['metric_' + key] = torch.mean(self.episode_metric_sums[key][env_ids]) / self.max_episode_length_s
             self.episode_metric_sums[key][env_ids] = 0.
+
+        if not start:
+            self.extras["episode"]["metric_termination_contact"] = self.termination_contact_buf[env_ids].float().mean()
+            self.extras["episode"]["metric_termination_roll"] = self.termination_roll_buf[env_ids].float().mean()
+            self.extras["episode"]["metric_termination_pitch"] = self.termination_pitch_buf[env_ids].float().mean()
+            self.extras["episode"]["metric_termination_height"] = self.termination_height_buf[env_ids].float().mean()
+            self.extras["episode"]["metric_termination_timeout"] = self.time_out_buf[env_ids].float().mean()
 
         # send timeout info to the algorithm
         if self.cfg.env.send_timeouts:
@@ -854,6 +872,14 @@ class ManipLoco(LeggedRobot):
         self.base_lin_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
         self.base_ang_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.gravity_vec)
+        if self.cfg.terrain.measure_heights:
+            self.height_points = self._init_height_points()
+            self.measured_heights = torch.zeros(
+                self.num_envs,
+                self.num_height_points,
+                device=self.device,
+                requires_grad=False,
+            )
 
         # joint positions offsets and PD gains
         self.default_dof_pos = torch.zeros(self.num_dofs, dtype=torch.float, device=self.device, requires_grad=False)
@@ -940,6 +966,10 @@ class ManipLoco(LeggedRobot):
         commands[:, 1] = 期望侧向速度，这里固定为 0
         commands[:, 2] = 期望 yaw 角速度
         """
+
+        if self.cfg.env.force_zero_commands:
+            self.commands[env_ids] = 0.
+            return
 
         if self.cfg.env.teleop_mode:
             return
@@ -1033,6 +1063,9 @@ class ManipLoco(LeggedRobot):
         command_env_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0).nonzero(as_tuple=False).flatten()
         self._resample_commands(command_env_ids)
         self._step_contact_targets()
+
+        if self.cfg.terrain.measure_heights:
+            self.measured_heights = self._get_heights()
 
         if self.cfg.domain_rand.push_robots and (self.common_step_counter % self.push_interval == 0):
             self._push_robots()
