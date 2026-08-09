@@ -44,6 +44,12 @@ python play.py --exptid aliengo_z1_source --proj_name aliengo-z1-low --checkpoin
 
 ```
 Use `--sim_device cpu --rl_device cpu` in case not enough GPU memory.
+
+For GPU video recording on a server without Xorg, including NVIDIA EGL setup,
+camera-follow replay, rough terrain, and VBC current/target pose markers, see
+[`VIDEO_REPLAY_EGL.md`](VIDEO_REPLAY_EGL.md). The reusable entrypoint is
+`legged_gym/scripts/play_aliengo_z1_video.py`.
+
 更多运行指令请看run_cmd.txt
 ## Suggestions
 To choose a good low-level policy that can be further used for training the high-level policy, we suggest you deploy the low-level policy first, and see if it goes well before training a high-level policy.
