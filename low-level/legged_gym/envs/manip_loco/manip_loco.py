@@ -69,6 +69,39 @@ class ManipLoco(LeggedRobot):
         stop = -gripper_dofs if gripper_dofs > 0 else None
         return slice(-(6 + gripper_dofs), stop)
 
+    @staticmethod
+    def _skew_symmetric(vector):
+        zero = torch.zeros_like(vector[:, 0])
+        return torch.stack((
+            zero, -vector[:, 2], vector[:, 1],
+            vector[:, 2], zero, -vector[:, 0],
+            -vector[:, 1], vector[:, 0], zero,
+        ), dim=1).reshape(-1, 3, 3)
+
+    def _update_ee_state(self):
+        gripper_state = self.rigid_body_state[:, self.gripper_idx]
+        self.ee_orn = gripper_state[:, 3:7]
+        ee_origin_pos = gripper_state[:, :3]
+        ee_origin_lin_vel = gripper_state[:, 7:10]
+        ee_origin_ang_vel = gripper_state[:, 10:13]
+        ee_link_jacobian = self.jacobian_whole[:, self.gripper_idx, :6, self._arm_dof_slice()]
+
+        if not self.use_grasp_point_for_ee:
+            self.ee_pos = ee_origin_pos
+            self.ee_vel = gripper_state[:, 7:13]
+            self.ee_j_eef = ee_link_jacobian
+            return
+
+        offset_world = quat_apply(self.ee_orn, self.ee_offset_local)
+        self.ee_pos = ee_origin_pos + offset_world
+        ee_point_lin_vel = ee_origin_lin_vel + torch.cross(ee_origin_ang_vel, offset_world, dim=-1)
+        self.ee_vel = torch.cat((ee_point_lin_vel, ee_origin_ang_vel), dim=-1)
+
+        jv_origin = ee_link_jacobian[:, :3]
+        jw_origin = ee_link_jacobian[:, 3:]
+        jv_point = jv_origin - torch.bmm(self._skew_symmetric(offset_world), jw_origin)
+        self.ee_j_eef = torch.cat((jv_point, jw_origin), dim=1)
+
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
 
@@ -139,6 +172,7 @@ class ManipLoco(LeggedRobot):
         self.gym.refresh_force_sensor_tensor(self.sim)
         self.gym.refresh_rigid_body_state_tensor(self.sim)
         self.gym.refresh_jacobian_tensors(self.sim)
+        self._update_ee_state()
         self.episode_length_buf += 1
         self.common_step_counter += 1
 
@@ -787,14 +821,14 @@ class ManipLoco(LeggedRobot):
                               0:3]
 
         # ee info
-        self.ee_pos = self.rigid_body_state[:, self.gripper_idx, :3]
-        self.ee_orn = self.rigid_body_state[:, self.gripper_idx, 3:7]
-        self.ee_vel = self.rigid_body_state[:, self.gripper_idx, 7:]
-        self.ee_j_eef = self.jacobian_whole[:, self.gripper_idx, :6, self._arm_dof_slice()]
+        self.grasp_offset = self.cfg.arm.grasp_offset
+        self.use_grasp_point_for_ee = getattr(self.cfg.arm, "use_grasp_point_for_ee", False)
+        ee_offset = [self.grasp_offset, 0.0, 0.0] if self.use_grasp_point_for_ee else [0.0, 0.0, 0.0]
+        self.ee_offset_local = torch.tensor(ee_offset, device=self.device, dtype=torch.float).repeat(self.num_envs, 1)
+        self._update_ee_state()
 
         # box info & target_ee info
         self.box_pos = self.box_root_state[:, 0:3]
-        self.grasp_offset = self.cfg.arm.grasp_offset
         self.init_target_ee_base = torch.tensor(self.cfg.arm.init_target_ee_base, device=self.device).unsqueeze(0)
 
         self.traj_timesteps = torch_rand_float(self.cfg.goal_ee.traj_time[0], self.cfg.goal_ee.traj_time[1], (self.num_envs, 1), device=self.device).squeeze(1) / self.dt
@@ -1201,7 +1235,7 @@ class ManipLoco(LeggedRobot):
         upper_arm_pose = self._get_ee_goal_spherical_center()
 
         sphere_geom_2 = gymutil.WireframeSphereGeometry(0.05, 4, 4, None, color=(0, 0, 1))
-        ee_pose = self.rigid_body_state[:, self.gripper_idx, :3]
+        ee_pose = self.ee_pos
 
         sphere_geom_origin = gymutil.WireframeSphereGeometry(0.1, 8, 8, None, color=(0, 1, 0))
         sphere_pose = gymapi.Transform(gymapi.Vec3(0, 0, 0), r=None)
