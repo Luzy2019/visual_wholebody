@@ -53,7 +53,7 @@ def train(args):
     else:
         mode = "online"
     wandb.init(project=args.proj_name, name=args.exptid, mode=mode, dir=LEGGED_GYM_ENVS_DIR +"/logs")
-    cfg_file = "b2z1_config.py" if args.task in ["b2z1", "b2_z1", "b2_z1_bounded_actions", "b2_z1_aggressive_locomotion", "b2_z1_reachable_workspace", "b2_z1_reachable_balanced"] else "b1z1_config.py"
+    cfg_file = "b2z1_config.py" if args.task in ["b2z1", "b2_z1", "b2_z1_bounded_actions", "b2_z1_aggressive_locomotion", "b2_z1_reachable_workspace", "b2_z1_reachable_workspace_motion", "b2_z1_reachable_workspace_motion_plus", "b2_z1_reachable_balanced"] else "b1z1_config.py"
     wandb.save(os.path.join(LEGGED_GYM_ENVS_DIR, "manip_loco", cfg_file), policy="now")
     wandb.save(LEGGED_GYM_ENVS_DIR + "/manip_loco/manip_loco.py", policy="now")
 
