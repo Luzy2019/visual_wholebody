@@ -94,11 +94,10 @@ class OnPolicyRunner:
 
         _, _ = self.env.reset()
 
-        arm_dof_slice = self.env._arm_dof_slice()
         self.alg.set_arm_default_coeffs(
-            self.env.p_gains[arm_dof_slice],
-            self.env.d_gains[arm_dof_slice],
-            self.env.default_dof_pos[arm_dof_slice],
+            self.env.p_gains[12:],
+            self.env.d_gains[12:],
+            self.env.default_dof_pos_wo_gripper[12:],
         )
         
     def set_it(self, it):

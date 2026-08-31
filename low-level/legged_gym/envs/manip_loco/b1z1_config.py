@@ -182,6 +182,7 @@ class B1Z1RoughCfg( LeggedRobotCfg ):
         box_env_origins_z = box_size / 2 + 0.16
     
     class arm:
+        base_offset = [0.3, 0.0, 0.09]
         init_target_ee_base = [0.2, 0.0, 0.2]
         grasp_offset = 0.08
         osc_kp = np.array([100, 100, 100, 30, 30, 30])
