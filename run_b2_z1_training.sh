@@ -4,7 +4,7 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python_bin="${B1Z1_PYTHON:-/opt/conda/envs/b1z1/bin/python}"
 task_name="${TASK:-b2_z1}"
-gpu_id="${GPU_ID:-0}"
+gpu_id="${GPU_ID:-3}"
 num_envs="${NUM_ENVS:-6144}"
 max_iterations="${MAX_ITERATIONS:-45000}"
 terrain_rows="${TERRAIN_ROWS:-10}"
