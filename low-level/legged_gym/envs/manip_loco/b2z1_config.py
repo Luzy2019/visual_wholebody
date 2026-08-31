@@ -3,8 +3,6 @@
 
 from .b1z1_config import B1Z1RoughCfg, B1Z1RoughCfgPPO
 import numpy as np
-
-
 class B2Z1RoughCfg(B1Z1RoughCfg):
     class goal_ee(B1Z1RoughCfg.goal_ee):
         class sphere_center(B1Z1RoughCfg.goal_ee.sphere_center):

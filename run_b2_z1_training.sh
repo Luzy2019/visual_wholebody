@@ -4,12 +4,13 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python_bin="${B1Z1_PYTHON:-/opt/conda/envs/b1z1/bin/python}"
 gpu_id="${GPU_ID:-0}"
+task="${TASK:-b2_z1}"
 num_envs="${NUM_ENVS:-6144}"
 max_iterations="${MAX_ITERATIONS:-45000}"
 terrain_rows="${TERRAIN_ROWS:-10}"
 terrain_cols="${TERRAIN_COLS:-20}"
 project_name="${PROJECT_NAME:-b2z1-low}"
-run_name="${RUN_NAME:-b2_z1_vbc_b1_recipe_$(date -u +%Y%m%d_%H%M%S)}"
+run_name="${RUN_NAME:-${task}_$(date -u +%Y%m%d_%H%M%S)}"
 log_dir="${LOG_DIR:-${repo_dir}}"
 log_file="${log_dir}/${run_name}.log"
 pid_file="${log_dir}/${run_name}.pid"
@@ -45,8 +46,7 @@ cd "${repo_dir}/low-level/legged_gym/scripts"
 
 nohup setsid "${python_bin}" -u train.py \
     --headless \
-    --task b2_z1 \
-    --observe_gait_commands \
+    --task "${task}" \
     --exptid "${run_name}" \
     --proj_name "${project_name}" \
     --sim_device cuda:0 \
