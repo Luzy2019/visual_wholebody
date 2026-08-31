@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python_bin="${B1Z1_PYTHON:-/opt/conda/envs/b1z1/bin/python}"
+task_name="${TASK:-b2_z1}"
 gpu_id="${GPU_ID:-0}"
 num_envs="${NUM_ENVS:-6144}"
 max_iterations="${MAX_ITERATIONS:-45000}"
@@ -45,7 +46,7 @@ cd "${repo_dir}/low-level/legged_gym/scripts"
 
 nohup setsid "${python_bin}" -u train.py \
     --headless \
-    --task b2_z1 \
+    --task "${task_name}" \
     --observe_gait_commands \
     --exptid "${run_name}" \
     --proj_name "${project_name}" \
@@ -70,6 +71,7 @@ fi
 
 echo "B2-Z1 training started"
 echo "PID: ${train_pid}"
+echo "Task: ${task_name}"
 echo "GPU: ${gpu_id}"
 echo "Environments: ${num_envs}"
 echo "Iterations: ${max_iterations}"
