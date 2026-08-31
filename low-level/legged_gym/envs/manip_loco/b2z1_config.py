@@ -187,7 +187,7 @@ class B2Z1ReachableWorkspaceMotionCfg(B2Z1ReachableWorkspaceCfg):
             # forward tracking without using the Radar-only rewards.
             walking_dof = 1.0
             tracking_lin_vel_max = 2.5
-            feet_height = 0.5
+            feet_height = 0.0
             feet_drag = -0.10
 
         class arm_scales(B2Z1ReachableWorkspaceCfg.rewards.arm_scales):
@@ -239,7 +239,7 @@ class B2Z1ReachableWorkspaceMotionPlusCfg(B2Z1ReachableWorkspaceMotionCfg):
         class scales(B2Z1ReachableWorkspaceMotionCfg.rewards.scales):
             walking_dof = 1.5
             tracking_lin_vel_max = 3.0
-            feet_height = 1.0
+            feet_height = 0.0
             feet_drag = -0.10
 
         class arm_scales(B2Z1ReachableWorkspaceCfg.rewards.arm_scales):
