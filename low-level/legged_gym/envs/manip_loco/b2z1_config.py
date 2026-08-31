@@ -6,18 +6,6 @@ import numpy as np
 
 
 class B2Z1RoughCfg(B1Z1RoughCfg):
-    class goal_ee(B1Z1RoughCfg.goal_ee):
-        class sphere_center(B1Z1RoughCfg.goal_ee.sphere_center):
-            x_offset = 0.2
-            z_invariant_offset = 0.8
-
-        class ranges(B1Z1RoughCfg.goal_ee.ranges):
-            pos_l = [0.45, 0.95]
-            pos_y = [-0.75, 0.75]
-
-    class env(B1Z1RoughCfg.env):
-        num_gripper_joints = 0
-
     class init_state(B1Z1RoughCfg.init_state):
         pos = [0.0, 0.0, 0.55]
         default_joint_angles = {
@@ -37,40 +25,49 @@ class B2Z1RoughCfg(B1Z1RoughCfg):
             "RR_thigh_joint": 1.0,
             "RR_calf_joint": -1.5,
 
+            # Keep the Z1 arm in the same neutral pose used by B1Z1.  The
+            # B2 URDF uses joint1..joint6 for the same six Z1 axes.
             "joint1": 0.0,
-            "joint2": 0.0,
-            "joint3": 0.0,
-            "joint4": 0.0,
+            "joint2": 1.48,
+            "joint3": -0.63,
+            "joint4": -0.84,
             "joint5": 0.0,
-            "joint6": 0.0,
+            "joint6": 1.57,
+            "z1_jointGripper": -0.7853981633974483,
         }
 
     class control(B1Z1RoughCfg.control):
+        # B2 gains follow Unitree's Isaac Lab asset; Z1 gains follow its ROS PID.
+        # Z1 is actually driven by the B1Z1 IK position drive in ManipLoco.
         stiffness = {
-            "_joint": 250.0,
-            "joint1": 50.0,
-            "joint2": 50.0,
-            "joint3": 80.0,
-            "joint4": 30.0,
-            "joint5": 30.0,
-            "joint6": 20.0,
+            "hip_joint": 160.0,
+            "thigh_joint": 160.0,
+            "calf_joint": 160.0,
+            "joint1": 300.0,
+            "joint2": 300.0,
+            "joint3": 300.0,
+            "joint4": 300.0,
+            "joint5": 300.0,
+            "joint6": 300.0,
         }
         damping = {
-            "_joint": 5.0,
-            "joint1": 3.0,
-            "joint2": 2.0,
-            "joint3": 3.0,
-            "joint4": 3.0,
-            "joint5": 2.5,
-            "joint6": 1.0,
+            "hip_joint": 5.0,
+            "thigh_joint": 5.0,
+            "calf_joint": 5.0,
+            "joint1": 5.0,
+            "joint2": 5.0,
+            "joint3": 5.0,
+            "joint4": 5.0,
+            "joint5": 5.0,
+            "joint6": 5.0,
         }
-        action_scale = [0.35] * 12 + [0.25] * 6
+        action_scale = [0.4, 0.45, 0.45] * 4 + [0.25] * 6
 
     class asset(B1Z1RoughCfg.asset):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/b2_z1/urdf/b2_z1.urdf'
         base_name = "base_link"
         foot_name = "foot"
-        gripper_name = "gripperMover"
+        gripper_name = "ee_gripper_link"
         penalize_contacts_on = ["thigh", "base_link", "calf"]
         collapse_fixed_joints = False
 
@@ -82,10 +79,7 @@ class B2Z1RoughCfg(B1Z1RoughCfg):
 
         class scales(B1Z1RoughCfg.rewards.scales):
             walking_dof = 1.0
-            tracking_contacts_shaped_force = -0.2
-            tracking_contacts_shaped_vel = -0.2
             tracking_lin_vel_max = 2.5
-            tracking_ang_vel = 0.5
             torques = -1.0e-5
 
 class B2Z1RoughCfgPPO(B1Z1RoughCfgPPO):
@@ -114,19 +108,6 @@ class B2Z1BoundedActionsCfgPPO(B2Z1RoughCfgPPO):
     class runner(B2Z1RoughCfgPPO.runner):
         experiment_name = 'b2_z1_bounded_actions'
 
-
-class B2Z1AggressiveLocomotionCfg(B2Z1BoundedActionsCfg):
-    class rewards(B2Z1BoundedActionsCfg.rewards):
-        class scales(B2Z1BoundedActionsCfg.rewards.scales):
-            walking_dof = 0.75
-            tracking_lin_vel_max = 3.25
-
-
-class B2Z1AggressiveLocomotionCfgPPO(B2Z1BoundedActionsCfgPPO):
-    class runner(B2Z1BoundedActionsCfgPPO.runner):
-        experiment_name = 'b2_z1_aggressive_locomotion'
-
-
 class B2Z1ReachableWorkspaceCfg(B2Z1BoundedActionsCfg):
     """B2-Z1 task with reachable arm targets and balanced locomotion rewards."""
 
@@ -138,18 +119,24 @@ class B2Z1ReachableWorkspaceCfg(B2Z1BoundedActionsCfg):
         class ranges(B2Z1BoundedActionsCfg.goal_ee.ranges):
             pos_l = [0.45, 0.82]
             pos_p = [-1.00, 0.80]
-            pos_y = [-0.90, 0.90]
+            pos_y = [-1.2, 1.2]
 
-    class arm(B2Z1BoundedActionsCfg.arm):
-        grasp_offset = 0.086
-        use_grasp_point_for_ee = True
+            # 原始 b1z1 版本
+            # delta_orn_r = [-0.5, 0.5]
+            # delta_orn_p = [-0.5, 0.5]
+            # delta_orn_y = [-0.5, 0.5]
+
+            # DQ-NET b1z1 版本 
+            # delta_orn_r = [-1.5, 1.5]
+            # delta_orn_p = [-1.2, 1.6]
+            # delta_orn_y = [-0.8, 0.8]
 
     class rewards(B2Z1BoundedActionsCfg.rewards):
         class scales(B2Z1BoundedActionsCfg.rewards.scales):
             walking_dof = 0.9
             tracking_lin_vel_max = 2.75
             tracking_ang_vel = 0.5
-            feet_height = 0.0
+            # feet_height = 0.0
 
 
 class B2Z1ReachableWorkspaceCfgPPO(B2Z1BoundedActionsCfgPPO):
@@ -177,8 +164,8 @@ class B2Z1ReachableWorkspaceMotionCfg(B2Z1ReachableWorkspaceCfg):
             z_invariant_offset = 0.8
 
         class ranges(B2Z1ReachableWorkspaceCfg.goal_ee.ranges):
-            pos_l = [0.4, 0.95]
-            pos_p = [-1 * np.pi / 2.5, 1 * np.pi / 3]
+            pos_l = [0.45, 0.82]
+            pos_p = [0.10, 0.55]
             pos_y = [-1.2, 1.2]
 
     class rewards(B2Z1ReachableWorkspaceCfg.rewards):
@@ -231,8 +218,8 @@ class B2Z1ReachableWorkspaceMotionPlusCfg(B2Z1ReachableWorkspaceMotionCfg):
 
         class ranges(B2Z1ReachableWorkspaceMotionCfg.goal_ee.ranges):
             pos_l = [0.45, 0.82]
-            pos_p = [-1.00, 0.80]
-            pos_y = [-0.90, 0.90]
+            pos_p = [0.10, 0.55]
+            pos_y = [-1.2, 1.2]
 
     class rewards(B2Z1ReachableWorkspaceMotionCfg.rewards):
         feet_height_target = 0.36
@@ -244,49 +231,10 @@ class B2Z1ReachableWorkspaceMotionPlusCfg(B2Z1ReachableWorkspaceMotionCfg):
             feet_drag = -0.10
 
         class arm_scales(B2Z1ReachableWorkspaceCfg.rewards.arm_scales):
-            tracking_ee_world = 0.8
+            tracking_ee_world = 1.2
 
 
 class B2Z1ReachableWorkspaceMotionPlusCfgPPO(B2Z1ReachableWorkspaceMotionCfgPPO):
     class runner(B2Z1ReachableWorkspaceMotionCfgPPO.runner):
         experiment_name = 'b2_z1_reachable_workspace_motion_plus'
-        save_interval = 500
-
-
-class B2Z1ReachableBalancedCfg(B2Z1ReachableWorkspaceCfg):
-    """B2-Z1 whole-body task with the larger aggressive target workspace."""
-
-    class goal_ee(B2Z1AggressiveLocomotionCfg.goal_ee):
-        class sphere_center(B2Z1AggressiveLocomotionCfg.goal_ee.sphere_center):
-            x_offset = 0.2
-            z_invariant_offset = 0.8
-
-        class ranges(B2Z1AggressiveLocomotionCfg.goal_ee.ranges):
-            pos_l = [0.45, 0.95]
-            pos_y = [-0.75, 0.75]
-
-    class arm(B2Z1ReachableWorkspaceCfg.arm):
-        grasp_offset = 0.086
-        use_grasp_point_for_ee = True
-
-    class rewards(B2Z1ReachableWorkspaceCfg.rewards):
-        class scales(B2Z1ReachableWorkspaceCfg.rewards.scales):
-            walking_dof = 0.5
-            tracking_lin_vel_max = 3.5
-            tracking_ang_vel = 0.5
-            tracking_contacts_shaped_force = -0.2
-            tracking_contacts_shaped_vel = -0.2
-            feet_height = 1.0
-            torques = -1.0e-5
-
-        class arm_scales(B2Z1ReachableWorkspaceCfg.rewards.arm_scales):
-            tracking_ee_world = 0.8
-
-
-class B2Z1ReachableBalancedCfgPPO(B2Z1ReachableWorkspaceCfgPPO):
-    class algorithm(B2Z1ReachableWorkspaceCfgPPO.algorithm):
-        mixing_schedule = [0.5, 2000, 2000]
-
-    class runner(B2Z1ReachableWorkspaceCfgPPO.runner):
-        experiment_name = 'b2_z1_reachable_balanced'
         save_interval = 500

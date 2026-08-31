@@ -296,7 +296,6 @@ workspace 与 balanced 的目标空间采样范围不同，会造成视频中 ta
 
 - 定义 B2-Z1 的机器人、初始姿态、PD 参数、action scale 和基础 reward。
 - 增加 `B2Z1ReachableWorkspaceCfg` 与对应 PPO 配置。
-- 增加 `B2Z1ReachableBalancedCfg` 与对应 PPO 配置。
 - 为两种任务分别设置目标空间和 locomotion reward。
 - balanced 显式设置 `[0.5, 2000, 2000]` 的 mixed schedule。
 - 两种 runner 都把 checkpoint interval 覆盖为 `500`。
