@@ -330,3 +330,4 @@ class PPO:
         arm_torques = fixed_arm_p_gains * (target_arm_dof_pos + self.default_arm_dof_pos - current_arm_dof_pos) \
             - fixed_arm_d_gains * current_arm_dof_vel
         return arm_torques
+
