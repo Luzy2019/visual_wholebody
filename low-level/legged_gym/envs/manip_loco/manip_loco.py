@@ -492,8 +492,12 @@ class ManipLoco(LeggedRobot):
         # self.num_dofs = len(self.dof_names)
         feet_names = [s for s in self.body_names if self.cfg.asset.foot_name in s]
         penalized_contact_names = []
+        penalized_contact_exclude = getattr(self.cfg.asset, "penalize_contacts_exclude", [])
         for name in self.cfg.asset.penalize_contacts_on:
-            body_names = [s for s in self.body_names if name in s]
+            body_names = [
+                s for s in self.body_names
+                if name in s and not any(exclude in s for exclude in penalized_contact_exclude)
+            ]
             if len(body_names) == 0:
                 raise Exception('No body found with name {}'.format(name))
             penalized_contact_names.extend(body_names)

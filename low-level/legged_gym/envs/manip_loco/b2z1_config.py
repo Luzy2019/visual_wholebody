@@ -69,6 +69,7 @@ class B2Z1RoughCfg(B1Z1RoughCfg):
         foot_name = "foot"
         gripper_name = "ee_gripper_link"
         penalize_contacts_on = ["thigh", "base_link", "calf"]
+        penalize_contacts_exclude = ["_rotor"]
         collapse_fixed_joints = False
 
     class arm(B1Z1RoughCfg.arm):
